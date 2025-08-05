@@ -1,5 +1,5 @@
 import os
-from pydantic import BaseSettings
+from pydantic_settings import BaseSettings
 from typing import Optional
 from dotenv import load_dotenv
 
@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "Backend API"
     MONGO_URI: str = os.getenv("MONGO_URI", "mongodb://localhost:27017")
     DB_NAME: str = os.getenv("DB_NAME", "testdb")
-    age: Optional[int] = Field(default=None)
+    age: Optional[int] = None
 
     class Config:
         env_file = ".env"
