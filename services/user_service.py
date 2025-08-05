@@ -10,7 +10,7 @@ def create_user(user: UserCreate):
     user_dict = user.model_dump()
     user_dict["password"] = hash_password(user.password)
     
-    result = users_collection.insert_one(user_dict)
+    result =  users_collection.insert_one(user_dict)
     return {
         "id": str(result.inserted_id),
         "email": user.email,

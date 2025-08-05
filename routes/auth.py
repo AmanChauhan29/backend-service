@@ -5,7 +5,7 @@ from services.user_service import create_user
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 @router.post("/signup", response_model=UserOut)
-def signup(user: UserCreate):
+async def signup(user: UserCreate):
     try:
         return create_user(user)
     except ValueError as e:
