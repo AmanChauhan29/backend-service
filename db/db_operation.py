@@ -6,15 +6,17 @@ logger = get_logger("DB_OPERATION")
 
 class MongoConnection:
     def __init__(self):
+        logger.info("Initializing MongoDB Connection")
         mongo_uri = settings.MONGO_URI
         try: 
             self.client = AsyncIOMotorClient(mongo_uri)
-            self.db = self.client[settings.DB_NAME]
-            self.users_collection = self.db["users"]
             logger.info("Successfully Connected to MongoDB")
+            self.db = self.client[settings.DB_NAME]
+            logger.info(f"Using Database: {settings.DB_NAME}")
+            self.users_collection = self.db["users"]
+            logger.info(f"Successfully Connected to MongoDB Database and Collection {self.users_collection}")
         except Exception as e:
-            logger.error(f"Could not connect to MongoDB: {e}")
-            self.client = None
-            self.db = None
-
+            logger.error(f"Could not connect to MongoDB due to error: {e}")
+            raise e
+mongo_conn = MongoConnection()
 
