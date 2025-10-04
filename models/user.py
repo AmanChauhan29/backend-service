@@ -10,3 +10,7 @@ class UserOut(BaseModel):
     id: str
     email: EmailStr
     full_name: str
+    
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str

@@ -14,7 +14,8 @@ class MongoConnection:
             self.db = self.client[settings.DB_NAME]
             logger.info(f"Using Database: {settings.DB_NAME}")
             self.users_collection = self.db["users"]
-            logger.info(f"Successfully Connected to MongoDB Database and Collection {self.users_collection}")
+            self.orders_collection = self.db["orders"]
+            logger.info(f"Successfully Connected to MongoDB Database and Collection {self.users_collection}, {self.orders_collection}")
         except Exception as e:
             logger.error(f"Could not connect to MongoDB due to error: {e}")
             raise e
