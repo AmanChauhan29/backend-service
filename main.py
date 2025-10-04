@@ -1,8 +1,7 @@
 from fastapi import FastAPI
 from settings.config import settings
-from routes.auth import router as auth_router
 from utils.logger import get_logger
-from routes.user_routes import router as user_router
+from routes import order_route, user_routes, auth
 
 logger = get_logger("main")
 app = FastAPI()
@@ -15,5 +14,6 @@ async def health_check():
         "message": "FastAPI is running"
     }
 
-app.include_router(auth_router)
-app.include_router(user_router)
+app.include_router(auth.router)
+app.include_router(user_routes.router)
+app.include_router(order_route.router)
