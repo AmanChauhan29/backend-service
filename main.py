@@ -5,6 +5,10 @@ from routes import order_route, user_routes, auth
 
 logger = get_logger("main")
 app = FastAPI()
+
+# @app.on_event("startup")
+# async def startup_event():
+#     await verify_db_connection()
 @app.get("/")
 async def health_check():
     logger.info("Health check is successful")
