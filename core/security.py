@@ -19,8 +19,8 @@ SECRET_KEY = os.getenv("SECRET_KEY", "MySecretKey@123")
 ALGORITHM = "HS256"
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
+    logger.info("Received request to get current user from token")
     try:
-        logger.info("Received request to get current user from token")
         # JWT decode
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         logger.info(f"Token decoded successfully for the current user")
