@@ -36,11 +36,9 @@ async def login(user: UserLogin):
     if not db_user:
         logger.warning(f"Login failed: user not found {user.email}")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
-    
     if not verify_password(user.password, db_user["password"]):
         logger.warning(f"Login failed: wrong password {user.email}")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
-    
     access_token = create_access_token({"id": str(db_user["_id"]), "sub": db_user["email"]})
     logger.info(f"Login successful: {user.email}")
     return {"access_token": access_token, "token_type": "bearer"}
