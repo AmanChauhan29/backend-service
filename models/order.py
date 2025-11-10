@@ -19,3 +19,10 @@ class OrderOut(BaseModel):
     total_amount: float
     status: str
     created_at: datetime
+    updated_at: Optional[datetime] = None
+
+class PaginatedOrderResponse(BaseModel):
+    total_orders: int
+    page: int
+    page_size: int
+    orders: List[OrderOut]

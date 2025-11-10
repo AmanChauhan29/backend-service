@@ -5,6 +5,12 @@ import asyncio
 
 logger = get_logger("DB_OPERATION")
 
+async def create_indexes():
+    orders_collection = mongo_conn.orders_collection
+    await orders_collection.create_index("user_email")
+    await orders_collection.create_index("status")
+    await orders_collection.create_index("created_at")
+
 class MongoConnection:
     def __init__(self):
         logger.info("Initializing MongoDB Connection")
@@ -13,7 +19,7 @@ class MongoConnection:
         self.db = self.client[settings.DB_NAME]
         self.users_collection = self.db["users"]
         self.orders_collection = self.db["orders"]
-
+   
     async def connect(self):
         try:
             # Force an actual connection & authentication check
