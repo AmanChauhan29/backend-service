@@ -7,7 +7,7 @@ from models.user import UserOut
 import os
 from utils.logger import get_logger
 
-logger = get_logger("Security_Utils")
+logger = get_logger("Dependencies")
 
 
 
@@ -18,14 +18,32 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 SECRET_KEY = os.getenv("SECRET_KEY", "MySecretKey@123")
 ALGORITHM = "HS256"
 
-async def get_current_user(token: str = Depends(oauth2_scheme)):
+class CurrentUser:
+    def __init__(self, email: str, role: str, restaurant_ids: list, token_version: int, full_name: str | None = None, id: str | None = None):
+        self.email = email
+        self.role = role
+        self.restaurant_ids = restaurant_ids
+        self.token_version = token_version
+        self.full_name = full_name
+        self.id = id
+
+async def get_current_user(token: str = Depends(oauth2_scheme)) -> CurrentUser:
+    """
+    Decode token, validate, fetch user from DB, and ensure token_version matches.
+    Returns CurrentUser object.
+    """
     logger.info("Received request to get current user from token")
     try:
         # JWT decode
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        logger.info(f"Token decoded successfully for the current user")
+        logger.debug(f"Token decoded successfully for the current user")
         email: str = payload.get("sub") # sub is used for unique identifier such as email or user id
-        logger.info(f"Email found in token: {email}")
+        logger.debug(f"Email found in token: {email}")
+        #added fields for role, restaurant_ids, token_version
+        role: str = payload.get("role", "user")
+        rid = payload.get("rid", [])
+        tv = int(payload.get("tv", 0))
+
         if email is None:
             logger.debug("Email not found for the current user in token")
             raise HTTPException(
@@ -42,15 +60,24 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="User not found"
             )
-        
-        # UserOut ke format me return karo
-        logger.info(f"User found for email: {email}, returning user details")
-        return UserOut(
-            id=str(user["_id"]),
-            email=user["email"],
-            full_name=user["full_name"]
+        db_tv = user.get("token_version", 0)
+        if db_tv != tv:
+            logger.warning(f"Token version mismatch for user: {email}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token has been revoked"
+            )
+        current_user = CurrentUser(
+            email=user.get("email"),
+            role=user.get("role", "user"),
+            restaurant_ids=user.get("restaurant_ids", []),
+            token_version=user.get("token_version", 0),
+            full_name=user.get("full_name", None),
+            id=str(user.get("_id", None))
         )
-
+        # UserOut ke format me return karo
+        logger.info(f"Current user fetched successfully: {current_user.email}")
+        return current_user
     except JWTError:
         logger.error("JWT Error: Invalid token")
         raise HTTPException(

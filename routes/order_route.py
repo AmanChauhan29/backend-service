@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from models.order import OrderCreate, OrderOut, PaginatedOrderResponse
 from services.order_service import create_user_order, get_user_orders, update_user_order, delete_user_order, update_order_status, list_user_orders
-from core.security import get_current_user
+from core.dependencies import get_current_user
 from typing import List
 from utils.logger import get_logger
 
