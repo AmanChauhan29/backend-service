@@ -5,6 +5,8 @@ from datetime import datetime
 from db.db_operation import mongo_conn
 from models.user import UserOut
 import os
+from typing import List, Optional
+from pydantic import BaseModel, Field
 from utils.logger import get_logger
 
 logger = get_logger("Dependencies")
@@ -18,14 +20,17 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 SECRET_KEY = os.getenv("SECRET_KEY", "MySecretKey@123")
 ALGORITHM = "HS256"
 
-class CurrentUser:
-    def __init__(self, email: str, role: str, restaurant_ids: list, token_version: int, full_name: str | None = None, id: str | None = None):
-        self.email = email
-        self.role = role
-        self.restaurant_ids = restaurant_ids
-        self.token_version = token_version
-        self.full_name = full_name
-        self.id = id
+class CurrentUser(BaseModel):
+    id: Optional[str] = None
+    email: str
+    full_name: Optional[str] = None
+    role: str = "user"
+    # use Field(default_factory=list) to avoid mutable default list pitfall
+    restaurant_ids: List[str] = Field(default_factory=list)
+    token_version: int = 0
+
+    class Config:
+        orm_mode = True  # helpful if you ever return ORM objects
 
 async def get_current_user(token: str = Depends(oauth2_scheme)) -> CurrentUser:
     """
