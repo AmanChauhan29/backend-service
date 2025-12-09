@@ -3,8 +3,9 @@ from typing import List, Optional
 
 class UserCreate(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=8, max_length=72)
     full_name: str
+    password: str
+    
 
 class UserInDB(BaseModel):
     email: EmailStr

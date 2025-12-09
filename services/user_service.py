@@ -1,6 +1,6 @@
 from db.db_operation import mongo_conn
 from utils.hash import hash_password
-from models.user import UserCreate, UserInDB, UserOut
+from models.user import UserCreate, UserOut
 from bson.objectid import ObjectId
 from utils.logger import get_logger
 from datetime import datetime

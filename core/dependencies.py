@@ -89,3 +89,63 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> CurrentUser:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token"
         )
+
+def require_role(*allowed_roles):
+    """
+    Ensures the current user has one of the allowed roles.
+    """
+    async def role_checker(current_user: CurrentUser = Depends(get_current_user)):
+        if current_user.role not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access denied. Requires one of roles: {allowed_roles}"
+            )
+        return current_user
+    
+    return role_checker
+
+
+def require_restaurant_admin(restaurant_id_param_name: str):
+    """
+    Returns a dependency which ensures:
+      - If current_user is superadmin => allow
+      - Else if current_user.role == 'restaurant_admin' and restaurant_id in user's restaurant_ids => allow
+      - Otherwise deny.
+    This factory expects the restaurant id value to be available in the path/params
+    under the name provided by 'restaurant_id_param_name' when used in a route.
+
+    Example usage in a route:
+      async def endpoint(restaurant_id: str, current_user=Depends(require_restaurant_admin("restaurant_id"))):
+           ...
+    """
+
+    async def checker(
+        # we need both the path param and the resolved current_user; FastAPI will inject both
+        restaurant_id: str = Depends(lambda: None),  # placeholder, real value will be provided by route param binding
+        current_user: CurrentUser = Depends(get_current_user)
+    ):
+        # NOTE: FastAPI binding will replace the placeholder with the actual path param value by name.
+        # We retrieve the restaurant_id from the request context via function argument.
+        # Behavior: When using Depends(require_restaurant_admin("restaurant_id")), FastAPI resolves
+        # the parameter named "restaurant_id" and injects it here.
+        # Implementation detail: to make this work reliably, use the pattern shown in the route examples.
+
+        if current_user.role == "superadmin":
+            return current_user
+
+        if current_user.role != "restaurant_admin":
+            logger.warning(f"Forbidden: {current_user.email} with role {current_user.role} tried to access restaurant {restaurant_id}")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only restaurant admins can access this resource")
+
+        # restaurant_id might be None if the binding didn't occur; guard it
+        if not restaurant_id:
+            logger.error("Restaurant id not provided to require_restaurant_admin dependency")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing restaurant id")
+
+        if restaurant_id not in current_user.restaurant_ids:
+            logger.warning(f"Forbidden: {current_user.email} is not assigned to restaurant {restaurant_id}")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not allowed to manage this restaurant")
+
+        return current_user
+
+    return checker

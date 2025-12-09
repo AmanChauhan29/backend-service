@@ -9,7 +9,8 @@ async def create_indexes():
     orders_collection = mongo_conn.orders_collection
     await orders_collection.create_index("user_email")
     await orders_collection.create_index("status")
-    await orders_collection.create_index("created_at")
+    await orders_collection.create_index("restaurant_id")
+    logger.info("Indexes created")
 
 class MongoConnection:
     def __init__(self):
