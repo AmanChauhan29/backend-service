@@ -13,7 +13,7 @@ def create_access_token(data: dict):
     """
     Creates JWT token with expiry.
     """
-    logger.info("Access token creation requested")
+    logger.debug("Access token creation requested")
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     logger.info(f"Token will expire at {expire}")

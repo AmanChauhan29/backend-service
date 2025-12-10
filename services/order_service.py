@@ -7,7 +7,13 @@ from utils.logger import get_logger
 from fastapi import HTTPException, status
 
 logger = get_logger("Order_Service")
-
+ALLOWED_STATUS_TRANSITIONS = {
+    "pending": ["preparing", "cancelled"],
+    "preparing": ["dispatched", "cancelled"],
+    "dispatched": ["delivered"],
+    "delivered": [],
+    "cancelled": []
+}
 async def create_user_order(user_email: str, order_data: OrderCreate):
     """Create a new order for the logged-in user"""
     logger.info(f"Creating new order for user {user_email}")
@@ -46,39 +52,46 @@ async def get_user_orders(user_email: str):
         for order in orders
     ]
 
-async def update_user_order(user_email: str, order_id: str, order_data: OrderCreate):
-    """Update an existing order for the logged-in user"""
-    logger.info(f"Attempting to update order {order_id} for user {user_email}")
+async def update_user_order(user_email: str, order_id: str, order_data):
+    """Update an order only if it belongs to the current user"""    
     orders_collection = mongo_conn.orders_collection
-    # Convert order_id to ObjectId
+    logger.info(f"User {user_email} requested update for order {order_id}")
+
+    # Validate order_id
     try:
         oid = ObjectId(order_id)
-    except Exception as e:
-        logger.error(f"Invalid order ID: {order_id}")
-        raise ValueError("Invalid order ID")
-    # Check if order exists and belongs to the user
-    logger.info(f"Checking if order {order_id} exists and belongs to user {user_email}")
+    except Exception:
+        logger.error(f"Invalid Order ID format: {order_id}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid Order ID format"
+        )
+
+    # Check if order exists and belongs to user
     existing_order = await orders_collection.find_one({"_id": oid, "user_email": user_email})
     if not existing_order:
-        logger.warning(f"Order {order_id} not found or does not belong to user {user_email}")
-        raise ValueError("Order not found or access denied")
+        logger.warning(f"Order {order_id} not found or access denied for user {user_email}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Order not found or access denied"
+        )
 
-    # Prepare updated data
-    update_data = order_data.model_dump()
-    update_data["updated_at"] = datetime.utcnow()
-    logger.info(f"Updating order {order_id} with data: {update_data}")
-    # Perform update
+    # Convert Pydantic model to dict
+    order_dict = order_data.model_dump()
+    order_dict["updated_at"] = datetime.utcnow()
+
+    # Update order in DB
     result = await orders_collection.update_one(
-        {"_id": oid},
-        {"$set": update_data}
+        {"_id": oid, "user_email": user_email},
+        {"$set": order_dict}
     )
 
     if result.modified_count == 0:
-        logger.warning(f"No changes were made to order {order_id}")
+        logger.warning(f"No changes made for order {order_id}")
     else:
-        logger.info(f"Order {order_id} updated successfully")
+        logger.info(f"Order {order_id} updated successfully for user {user_email}")
 
-    # Return updated order
+    # Return the updated order
     updated_order = await orders_collection.find_one({"_id": oid})
     return {
         "id": str(updated_order["_id"]),
@@ -120,3 +133,68 @@ async def delete_user_order(user_email: str, order_id: str):
 
     logger.info(f"Order {order_id} deleted successfully")
     return {"message": "Order deleted successfully"}
+
+async def update_order_status(user_email: str, order_id: str, new_status: str):
+    """Update order status following valid transitions"""
+    orders_collection = mongo_conn.orders_collection
+    logger.info(f"User {user_email} requested status change for order {order_id} → {new_status}")
+
+    try:
+        oid = ObjectId(order_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid order ID")
+
+    # Fetch existing order
+    order = await orders_collection.find_one({"_id": oid, "user_email": user_email})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found or access denied")
+
+    current_status = order["status"]
+
+    # Check valid transition
+    if new_status not in ALLOWED_STATUS_TRANSITIONS[current_status]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid status transition from '{current_status}' to '{new_status}'"
+        )
+
+    # Update status
+    await orders_collection.update_one(
+        {"_id": oid},
+        {"$set": {"status": new_status, "updated_at": datetime.utcnow()}}
+    )
+
+    logger.info(f"Order {order_id} status updated from {current_status} → {new_status}")
+    return {"message": f"Order status changed from {current_status} to {new_status}"}
+
+async def list_user_orders(user_email: str, status: str | None = None, page: int = 1, limit: int = 10):
+    """Fetch paginated user orders with optional status filter"""
+    orders_collection = mongo_conn.orders_collection
+
+    query = {"user_email": user_email}
+    if status:
+        query["status"] = status
+
+    skip = (page - 1) * limit
+
+    cursor = orders_collection.find(query).sort("created_at", -1).skip(skip).limit(limit)
+    orders = await cursor.to_list(length=limit)
+
+    total_count = await orders_collection.count_documents(query)
+
+    return {
+        "total_orders": total_count,
+        "page": page,
+        "page_size": limit,
+        "orders": [
+            {
+                "id": str(order["_id"]),
+                "user_email": order["user_email"],
+                "items": order["items"],
+                "total_amount": order["total_amount"],
+                "status": order["status"],
+                "created_at": order["created_at"],
+                "updated_at": order.get("updated_at")
+            } for order in orders
+        ]
+    }
