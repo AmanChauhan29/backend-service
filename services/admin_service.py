@@ -129,8 +129,9 @@ async def change_user_role(target_user_id: str, new_role: str, restaurant_ids: l
     client = getattr(mongo_conn, "client", None)
     try:
         if client is not None:
-            # Motor client supports start_session for transactions
-            async with client.start_session() as session:
+            # Motor: first await start_session(), then use session.start_transaction() as async context manager
+            session = await client.start_session()
+            try:
                 async with session.start_transaction():
                     result = await users_col.update_one(
                         {"_id": ObjectId(target_user_id)},
@@ -148,6 +149,8 @@ async def change_user_role(target_user_id: str, new_role: str, restaurant_ids: l
                         raise ValueError("User not found during update")
 
                     await audit_col.insert_one(audit_doc, session=session)
+            finally:
+                await session.end_session()
         else:
             # fallback without transaction
             result = await users_col.update_one(
@@ -173,33 +176,54 @@ async def change_user_role(target_user_id: str, new_role: str, restaurant_ids: l
 
 async def revoke_user_tokens(target_user_id: str, actor_email: str, reason: str | None = None):
     """
-    Increment token_version to revoke tokens and create audit log.
+    Safely increment token_version to revoke tokens and create audit log.
+    - target_user_id: str (ObjectId hex)
+    - actor_email: email of the admin performing action
+    - reason: optional reason string
     """
     users_col = mongo_conn.users_collection
     audit_col = mongo_conn.audit_logs
 
-    user = await users_col.find_one({"_id": ObjectId(target_user_id)}, {"password": 0})
+    # Validate ObjectId early
+    try:
+        oid = ObjectId(target_user_id)
+    except Exception:
+        raise ValueError("Invalid user id format")
+
+    # Fetch user (safe projection)
+    user = await users_col.find_one({"_id": oid}, {"password": 0})
     if not user:
         raise ValueError("User not found")
+
+    before_tv = int(user.get("token_version", 0))
+    after_tv = before_tv + 1
 
     audit_doc = {
         "actor_email": actor_email,
         "action": "revoke_tokens",
         "resource_type": "user",
         "resource_id": target_user_id,
-        "before": {"token_version": int(user.get("token_version", 0))},
-        "after": {"token_version": int(user.get("token_version", 0)) + 1},
+        "before": {"token_version": before_tv},
+        "after": {"token_version": after_tv},
         "reason": reason,
         "timestamp": datetime.utcnow()
     }
 
-    result = await users_col.update_one({"_id": ObjectId(target_user_id)}, {"$inc": {"token_version": 1}})
-    if result.matched_count == 0:
-        raise ValueError("User not found during revoke")
+    try:
+        result = await users_col.update_one({"_id": oid}, {"$inc": {"token_version": 1}})
+        if result.matched_count == 0:
+            raise ValueError("User not found during revoke")
+        await audit_col.insert_one(audit_doc)
+    except PyMongoError:
+        logger.exception("DB error during revoke_user_tokens")
+        raise
 
-    await audit_col.insert_one(audit_doc)
-    logger.info(f"{actor_email} revoked tokens for {target_user_id}")
-    return {"message": "tokens_revoked", "user_id": target_user_id}
+    logger.info(f"{actor_email} revoked tokens for {target_user_id}", extra={
+        "action": "revoke_tokens",
+        "resource_id": target_user_id,
+        "actor_email": actor_email
+    })
+    return {"message": "tokens_revoked", "user_id": target_user_id, "before_token_version": before_tv, "after_token_version": after_tv}
 
 async def disable_user(target_user_id: str, actor_email: str, reason: str | None = None):
     """
@@ -233,6 +257,50 @@ async def disable_user(target_user_id: str, actor_email: str, reason: str | None
     await audit_col.insert_one(audit_doc)
     logger.info(f"{actor_email} disabled user {target_user_id}")
     return {"message": "user_disabled", "user_id": target_user_id}
+
+async def enable_user(target_user_id: str, actor_email: str, reason: str | None = None):
+    """
+    Re-enable a previously disabled user.
+    - Does NOT change token_version (no need to revoke tokens; they were already revoked on disable).
+    - Writes an audit log.
+    """
+    users_col = mongo_conn.users_collection
+    audit_col = mongo_conn.audit_logs
+
+    try:
+        oid = ObjectId(target_user_id)
+    except Exception:
+        raise ValueError("Invalid user id format")
+
+    user = await users_col.find_one({"_id": oid}, {"password": 0})
+    if not user:
+        raise ValueError("User not found")
+
+    before_snapshot = {"disabled": user.get("disabled", False)}
+    after_snapshot = {"disabled": False}
+
+    audit_doc = {
+        "actor_email": actor_email,
+        "action": "enable_user",
+        "resource_type": "user",
+        "resource_id": target_user_id,
+        "before": before_snapshot,
+        "after": after_snapshot,
+        "reason": reason,
+        "timestamp": datetime.utcnow()
+    }
+
+    result = await users_col.update_one(
+        {"_id": oid},
+        {"$set": {"disabled": False, "updated_at": datetime.utcnow()}}
+    )
+    if result.matched_count == 0:
+        raise ValueError("User not found during enable")
+
+    await audit_col.insert_one(audit_doc)
+    logger.info(f"{actor_email} enabled user {target_user_id}")
+    return {"message": "user_enabled", "user_id": target_user_id}
+
 
 async def list_audit_logs(skip: int = 0, limit: int = 50):
     """

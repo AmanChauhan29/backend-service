@@ -19,6 +19,7 @@ class MongoConnection:
         self.client = AsyncIOMotorClient(mongo_uri)
         self.db = self.client[settings.DB_NAME]
         self.users_collection = self.db["users"]
+        self.audit_logs = self.db["audit_logs"]
         self.orders_collection = self.db["orders"]
    
     async def connect(self):

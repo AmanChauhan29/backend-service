@@ -36,6 +36,9 @@ async def login(user: UserLogin):
     if not db_user:
         logger.warning(f"Login failed: user not found {user.email}")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    if db_user.get("disabled", False):
+    # Reason: user account is administratively disabled
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account disabled. Contact support.")
     if not verify_password(user.password, db_user["password"]):
         logger.warning(f"Login failed: wrong password {user.email}")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")

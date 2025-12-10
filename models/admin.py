@@ -1,6 +1,7 @@
 # models/admin.py
 from pydantic import BaseModel, EmailStr, Field
 from typing import List, Optional
+from datetime import datetime
 
 # Request payload to change a user's role
 class RoleChangeRequest(BaseModel):
@@ -20,9 +21,15 @@ class UserListItem(BaseModel):
 # Response for user details
 class UserDetail(UserListItem):
     token_version: int
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
+class RevokePayload(BaseModel):
+    reason: str | None = None
+
+class EnablePayload(BaseModel):
+    reason: str | None = None
+    
 # Response for audit log item
 class AuditItem(BaseModel):
     id: str
@@ -33,4 +40,4 @@ class AuditItem(BaseModel):
     before: Optional[dict] = None
     after: Optional[dict] = None
     reason: Optional[str] = None
-    timestamp: str
+    timestamp: Optional[datetime] = None

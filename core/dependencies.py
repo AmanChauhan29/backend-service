@@ -65,6 +65,9 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> CurrentUser:
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="User not found"
             )
+        if user.get("disabled", False):
+            logger.warning(f"Disabled user attempted access: {email}")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account disabled")
         db_tv = user.get("token_version", 0)
         if db_tv != tv:
             logger.warning(f"Token version mismatch for user: {email}")

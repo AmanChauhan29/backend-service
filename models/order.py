@@ -18,7 +18,7 @@ class OrderOut(BaseModel):
     items: List[OrderItem]
     total_amount: float
     status: str
-    created_at: datetime
+    created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
 class PaginatedOrderResponse(BaseModel):
