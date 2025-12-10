@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from settings.config import settings
 from db.db_operation import create_indexes
 from utils.logger import get_logger
-from routes import order_route, user_routes, auth, admin_routes
+from routes import order_route, user_routes, auth, admin_routes, restaurant_routes
 # from core.middleware import ExceptionHandlerMiddleware
 
 logger = get_logger("main")
@@ -24,3 +24,4 @@ app.include_router(auth.router)
 app.include_router(user_routes.router)
 app.include_router(order_route.router)
 app.include_router(admin_routes.router)
+app.include_router(restaurant_routes.router)

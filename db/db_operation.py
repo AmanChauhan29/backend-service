@@ -10,6 +10,8 @@ async def create_indexes():
     await orders_collection.create_index("user_email")
     await orders_collection.create_index("status")
     await orders_collection.create_index("restaurant_id")
+    await mongo_conn.restaurants_collection.create_index("slug", unique=True)
+    await mongo_conn.restaurants_collection.create_index("owner_email")
     logger.info("Indexes created")
 
 class MongoConnection:
@@ -19,6 +21,7 @@ class MongoConnection:
         self.client = AsyncIOMotorClient(mongo_uri)
         self.db = self.client[settings.DB_NAME]
         self.users_collection = self.db["users"]
+        self.restaurants_collection = self.db["restaurants"]
         self.audit_logs = self.db["audit_logs"]
         self.orders_collection = self.db["orders"]
    
