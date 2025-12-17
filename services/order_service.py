@@ -5,15 +5,22 @@ from bson.objectid import ObjectId
 from core.exceptions import AppException
 from utils.logger import get_logger
 from fastapi import HTTPException, status
+from typing import List
+from pymongo.errors import PyMongoError
 
 logger = get_logger("Order_Service")
-ALLOWED_STATUS_TRANSITIONS = {
-    "pending": ["preparing", "cancelled"],
-    "preparing": ["dispatched", "cancelled"],
-    "dispatched": ["delivered"],
-    "delivered": [],
-    "cancelled": []
+# allowed transitions
+ALLOWED_TRANSITIONS = {
+    "pending": ["accepted", "rejected", "cancelled"],
+    "accepted": ["preparing", "cancelled", "rejected"],
+    "preparing": ["ready", "cancelled"],
+    "ready": ["out_for_delivery"],
+    "out_for_delivery": ["delivered"],
+    "rejected": [],
+    "cancelled": [],
+    "delivered": []
 }
+
 async def create_user_order(user_email: str, order_data: OrderCreate):
     """Create a new order for the logged-in user"""
     logger.info(f"Creating new order for user {user_email}")
@@ -32,6 +39,89 @@ async def create_user_order(user_email: str, order_data: OrderCreate):
         "id": str(result.inserted_id),
         **order_dict
     }
+
+async def create_order(user_email: str, restaurant_id: str, items: List[dict], status: str = "pending"):
+    """
+    items: list of {"item_id": "<id>", "quantity": <int>}
+    Validations:
+      - each item exists and belongs to restaurant_id
+      - item is available
+    Snapshots:
+      - store item_name and price at time of order (so later price changes don't affect historical orders)
+    """
+    # validate restaurant id
+    try:
+        ObjectId(restaurant_id)
+    except Exception:
+        raise ValueError("Invalid restaurant id")
+
+    # Build list of item ObjectIds and map
+    item_ids = []
+    for it in items:
+        try:
+            item_ids.append(ObjectId(it["item_id"]))
+        except Exception:
+            raise ValueError("Invalid item id in items")
+
+    # fetch all item docs
+    cursor = mongo_conn.menu_items.find({"_id": {"$in": item_ids}})
+    found_items = await cursor.to_list(length=None)
+    if len(found_items) != len(item_ids):
+        raise ValueError("One or more items not found")
+
+    # map by string id
+    found_map = {str(d["_id"]): d for d in found_items}
+
+    # ensure all items belong to same restaurant and match requested restaurant_id
+    for d in found_items:
+        if d["restaurant_id"] != restaurant_id:
+            raise ValueError("Item does not belong to specified restaurant")
+        if not d.get("is_available", True):
+            raise ValueError(f"Item not available: {d['name']}")
+
+    # build order items with snapshot
+    order_items = []
+    total_amount = 0.0
+    for req in items:
+        sid = req["item_id"]
+        qty = int(req["quantity"])
+        doc = found_map.get(sid)
+        if doc is None:
+            raise ValueError("Item not found in DB: " + sid)
+        snapshot = {
+            "item_id": sid,
+            "item_name": doc["name"],
+            "unit_price": float(doc["price"]),
+            "quantity": qty,
+            "line_total": round(float(doc["price"]) * qty, 2)
+        }
+        order_items.append(snapshot)
+        total_amount += snapshot["line_total"]
+
+    # build order doc
+    order_doc = {
+        "user_email": user_email,
+        "restaurant_id": restaurant_id,
+        "items": order_items,
+        "total_amount": round(total_amount, 2),
+        "status": status,
+        "created_at": datetime.utcnow(),
+        "updated_at": None
+    }
+
+    try:
+        result = await mongo_conn.orders.insert_one(order_doc)
+    except PyMongoError:
+        logger.exception("DB error creating order")
+        raise
+
+    logger.info("Order created", extra={"order_id": str(result.inserted_id), "user": user_email, "restaurant_id": restaurant_id})
+    return {
+        "id": str(result.inserted_id),
+        **order_doc,
+        "created_at": order_doc["created_at"].isoformat()
+    }
+
 
 
 async def get_user_orders(user_email: str):
@@ -134,38 +224,47 @@ async def delete_user_order(user_email: str, order_id: str):
     logger.info(f"Order {order_id} deleted successfully")
     return {"message": "Order deleted successfully"}
 
-async def update_order_status(user_email: str, order_id: str, new_status: str):
-    """Update order status following valid transitions"""
-    orders_collection = mongo_conn.orders_collection
-    logger.info(f"User {user_email} requested status change for order {order_id} → {new_status}")
-
+async def update_order_status_by_restaurant(restaurant_id: str, order_id: str, new_status: str, actor_email: str = None, reason: str | None = None):
+    # validate ids
     try:
         oid = ObjectId(order_id)
+        ObjectId(restaurant_id)
     except Exception:
-        raise HTTPException(status_code=400, detail="Invalid order ID")
+        raise ValueError("Invalid id")
 
-    # Fetch existing order
-    order = await orders_collection.find_one({"_id": oid, "user_email": user_email})
+    order = await mongo_conn.orders.find_one({"_id": oid})
     if not order:
-        raise HTTPException(status_code=404, detail="Order not found or access denied")
+        raise ValueError("Order not found")
 
-    current_status = order["status"]
+    if order.get("restaurant_id") != restaurant_id:
+        raise ValueError("Order does not belong to this restaurant")
 
-    # Check valid transition
-    if new_status not in ALLOWED_STATUS_TRANSITIONS[current_status]:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid status transition from '{current_status}' to '{new_status}'"
-        )
+    current_status = order.get("status")
+    if new_status not in ALLOWED_TRANSITIONS.get(current_status, []):
+        raise ValueError(f"Invalid status transition from {current_status} -> {new_status}")
 
-    # Update status
-    await orders_collection.update_one(
-        {"_id": oid},
-        {"$set": {"status": new_status, "updated_at": datetime.utcnow()}}
-    )
+    update_doc = {"status": new_status, "updated_at": datetime.utcnow()}
+    if new_status == "rejected" and reason:
+        update_doc["rejection_reason"] = reason
 
-    logger.info(f"Order {order_id} status updated from {current_status} → {new_status}")
-    return {"message": f"Order status changed from {current_status} to {new_status}"}
+    result = await mongo_conn.orders.update_one({"_id": oid}, {"$set": update_doc})
+    if result.matched_count == 0:
+        raise ValueError("Failed to update order status")
+
+    # audit
+    await mongo_conn.audit_logs.insert_one({
+        "actor_email": actor_email,
+        "action": "update_order_status",
+        "resource_type": "order",
+        "resource_id": order_id,
+        "before": {"status": current_status},
+        "after": {"status": new_status},
+        "reason": reason,
+        "timestamp": datetime.utcnow()
+    })
+
+    logger.info("Order status updated", extra={"order_id": order_id, "from": current_status, "to": new_status, "actor": actor_email})
+    return {"order_id": order_id, "from": current_status, "to": new_status}
 
 async def list_user_orders(user_email: str, status: str | None = None, page: int = 1, limit: int = 10):
     """Fetch paginated user orders with optional status filter"""

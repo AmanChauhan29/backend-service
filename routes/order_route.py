@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from models.order import OrderCreate, OrderOut, PaginatedOrderResponse
-from services.order_service import create_user_order, get_user_orders, update_user_order, delete_user_order, update_order_status, list_user_orders
+from services.order_service import create_user_order, get_user_orders, update_user_order, delete_user_order, list_user_orders, update_order_status_by_restaurant
 from core.dependencies import get_current_user
-from typing import List
+from typing import List, Optional
 from utils.logger import get_logger
 
 logger = get_logger("Order_Route")
@@ -74,3 +74,31 @@ async def change_order_status(order_id: str, status: str, current_user: str = De
     except Exception as e:
         logger.error(f"Error updating status for {order_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal Server Error")
+    
+
+@router.patch("/{restaurant_id}/{order_id}/status")
+async def api_update_order_status(restaurant_id: str, order_id: str, payload: dict = Body(...), current_user = Depends(get_current_user)):
+    # RBAC: allow superadmin or restaurant_admin who owns this restaurant
+    if current_user.role != "superadmin" and restaurant_id not in current_user.restaurant_ids:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed to update orders for this restaurant")
+    new_status = payload.get("status")
+    reason = payload.get("reason")
+    if not new_status:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing status")
+    try:
+        res = await update_order_status_by_restaurant(restaurant_id, order_id, new_status, actor_email=current_user.email, reason=reason)
+        return res
+    except ValueError as e:
+        # client issues
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception:
+        logger.exception("Error updating order status")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal Server Error")
+    
+
+# @router.get("/restaurant/{restaurant_id}/orders", response_model=List[OrderOut])
+# async def api_get_restaurant_orders(restaurant_id: str, current_user=Depends(get_current_user), skip:int=0, limit:int=50):
+#     if current_user.role != "superadmin" and restaurant_id not in current_user.restaurant_ids:
+#         raise HTTPException(...403...)
+#     orders = await get_orders_by_restaurant(restaurant_id, skip, limit)
+#     return orders

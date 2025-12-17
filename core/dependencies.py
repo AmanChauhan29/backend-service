@@ -45,9 +45,9 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> CurrentUser:
         email: str = payload.get("sub") # sub is used for unique identifier such as email or user id
         logger.debug(f"Email found in token: {email}")
         #added fields for role, restaurant_ids, token_version
-        role: str = payload.get("role", "user")
-        rid = payload.get("rid", [])
-        tv = int(payload.get("tv", 0))
+        role: str = payload.get("role")
+        rid = payload.get("restaurant_ids")
+        tv = payload.get("token_version")
 
         if email is None:
             logger.debug("Email not found for the current user in token")
@@ -68,7 +68,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> CurrentUser:
         if user.get("disabled", False):
             logger.warning(f"Disabled user attempted access: {email}")
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account disabled")
-        db_tv = user.get("token_version", 0)
+        db_tv = user.get("token_version")
         if db_tv != tv:
             logger.warning(f"Token version mismatch for user: {email}")
             raise HTTPException(
@@ -77,11 +77,11 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> CurrentUser:
             )
         current_user = CurrentUser(
             email=user.get("email"),
-            role=user.get("role", "user"),
-            restaurant_ids=user.get("restaurant_ids", []),
-            token_version=user.get("token_version", 0),
-            full_name=user.get("full_name", None),
-            id=str(user.get("_id", None))
+            role=user.get("role"),
+            restaurant_ids=user.get("restaurant_ids"),
+            token_version=user.get("token_version"),
+            full_name=user.get("full_name"),
+            id=str(user.get("_id"))
         )
         # UserOut ke format me return karo
         logger.info(f"Current user fetched successfully: {current_user.email}")

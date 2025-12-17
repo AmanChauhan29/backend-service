@@ -12,6 +12,10 @@ async def create_indexes():
     await orders_collection.create_index("restaurant_id")
     await mongo_conn.restaurants_collection.create_index("slug", unique=True)
     await mongo_conn.restaurants_collection.create_index("owner_email")
+    # inside your startup create_indexes() or similar
+    await mongo_conn.menu_items.create_index([("restaurant_id", 1), ("name", 1)], unique=True)
+    await mongo_conn.menu_items.create_index("restaurant_id")
+
     logger.info("Indexes created")
 
 class MongoConnection:
@@ -22,6 +26,7 @@ class MongoConnection:
         self.db = self.client[settings.DB_NAME]
         self.users_collection = self.db["users"]
         self.restaurants_collection = self.db["restaurants"]
+        self.menu_items = self.db["menu_items"]
         self.audit_logs = self.db["audit_logs"]
         self.orders_collection = self.db["orders"]
    
