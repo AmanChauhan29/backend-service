@@ -25,7 +25,7 @@ async def create_user_order(user_email: str, order_data: OrderCreate):
     """Create a new order for the logged-in user"""
     logger.info(f"Creating new order for user {user_email}")
     orders_collection = mongo_conn.orders_collection
-    logger.info(f"connected to orders collection")
+    logger.debug(f"connected to orders collection")
     if not order_data.items:
         raise AppException(status_code=400, detail="Order must have at least one item")
     order_dict = order_data.model_dump()
