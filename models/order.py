@@ -35,3 +35,7 @@ class RestaurantOrderOut(BaseModel):
     status: str
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    updated_by: Optional[str] = None
+
+class OrderStatusUpdate(BaseModel):
+    new_status: str
