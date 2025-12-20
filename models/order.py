@@ -26,3 +26,12 @@ class PaginatedOrderResponse(BaseModel):
     page: int
     page_size: int
     orders: List[OrderOut]
+
+class RestaurantOrderOut(BaseModel):
+    id: str
+    restaurant_id: str
+    items: List[OrderItem]
+    total_amount: float
+    status: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
