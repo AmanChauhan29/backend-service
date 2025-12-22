@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from models.order import OrderCreate, OrderOut, PaginatedOrderResponse
-from services.order_service import create_user_order, get_user_orders, update_user_order, delete_user_order, list_user_orders, update_order_status_by_restaurant
+from services.user_order_service import create_user_order, get_user_orders, update_user_order, delete_user_order, list_user_orders, update_order_status_by_restaurant, create_order
 from core.dependencies import get_current_user
 from typing import List, Optional
 from utils.logger import get_logger
@@ -12,9 +12,10 @@ router = APIRouter(prefix="/orders", tags=["Orders"])
 @router.post("/", response_model=OrderOut)
 async def place_order(order: OrderCreate, current_user: str = Depends(get_current_user)):
     """Create a new order"""
-    logger.info(f"Received order request: {order}")
+    logger.info(f"Received request to create order by user: {order}")
     try:
-        new_order = await create_user_order(current_user.email, order)
+        # new_order = await create_user_order(current_user.email, order)
+        new_order = await create_order(current_user.email, order.restaurant_id, order.items, order.status)
         return new_order  
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
