@@ -1,6 +1,6 @@
 from db.db_operation import mongo_conn
 from datetime import datetime
-from models.order import OrderCreate
+from models.order import OrderCreate, OrderItem
 from bson.objectid import ObjectId
 from core.exceptions import AppException
 from utils.logger import get_logger
@@ -20,27 +20,12 @@ ALLOWED_TRANSITIONS = {
     "cancelled": [],
     "delivered": []
 }
+USER_CANCELLABLE_STATUSES = [
+    "pending",
+    "accepted"
+]
 
-async def create_user_order(user_email: str, order_data: OrderCreate):
-    """Create a new order for the logged-in user"""
-    logger.info(f"Creating new order for user {user_email}")
-    orders_collection = mongo_conn.orders_collection
-    logger.debug(f"connected to orders collection")
-    if not order_data.items:
-        raise AppException(status_code=400, detail="Order must have at least one item")
-    order_dict = order_data.model_dump()
-    order_dict.update({
-        "user_email": user_email,
-        "created_at": datetime.utcnow()
-    })
-    result = await orders_collection.insert_one(order_dict)
-    logger.info(f"New order created by {user_email} with id {result.inserted_id}")
-    return {
-        "id": str(result.inserted_id),
-        **order_dict
-    }
-
-async def create_order(user_email: str, restaurant_id: str, items: List[dict], status: str = "pending"):
+async def create_order(user_email: str, restaurant_id: str, items: List[OrderItem], status: str = "pending"):
     """
     items: list of {"item_id": "<id>", "quantity": <int>}
     Validations:
@@ -59,10 +44,9 @@ async def create_order(user_email: str, restaurant_id: str, items: List[dict], s
     item_ids = []
     for it in items:
         try:
-            item_ids.append(ObjectId(it["item_id"]))
+            item_ids.append(ObjectId(it.item_id))
         except Exception:
-            raise ValueError("Invalid item id in items")
-
+            raise ValueError(f"Invalid item id in items: {it.item_id}")
     # fetch all item docs
     cursor = mongo_conn.menu_items.find({"_id": {"$in": item_ids}})
     found_items = await cursor.to_list(length=None)
@@ -74,7 +58,7 @@ async def create_order(user_email: str, restaurant_id: str, items: List[dict], s
 
     # ensure all items belong to same restaurant and match requested restaurant_id
     for d in found_items:
-        if d["restaurant_id"] != restaurant_id:
+        if str(d["restaurant_id"]) != restaurant_id:
             raise ValueError("Item does not belong to specified restaurant")
         if not d.get("is_available", True):
             raise ValueError(f"Item not available: {d['name']}")
@@ -83,8 +67,8 @@ async def create_order(user_email: str, restaurant_id: str, items: List[dict], s
     order_items = []
     total_amount = 0.0
     for req in items:
-        sid = req["item_id"]
-        qty = int(req["quantity"])
+        sid = req.item_id
+        qty = int(req.quantity)
         doc = found_map.get(sid)
         if doc is None:
             raise ValueError("Item not found in DB: " + sid)
@@ -110,10 +94,10 @@ async def create_order(user_email: str, restaurant_id: str, items: List[dict], s
     }
 
     try:
-        result = await mongo_conn.orders.insert_one(order_doc)
-    except PyMongoError:
-        logger.exception("DB error creating order")
-        raise
+        result = await mongo_conn.orders_collection.insert_one(order_doc)
+    except PyMongoError as e:
+        logger.error(f"Error inserting order: {e}", exc_info=True)
+        raise e
 
     logger.info("Order created", extra={"order_id": str(result.inserted_id), "user": user_email, "restaurant_id": restaurant_id})
     return {
@@ -196,7 +180,7 @@ async def update_user_order(user_email: str, order_id: str, order_data):
 async def delete_user_order(user_email: str, order_id: str):
     """Delete an existing order for the logged-in user"""
     logger.info(f"Attempting to delete order {order_id} for user {user_email}")
-    orders_collection = mongo_conn.orders_collection
+    # orders_collection = mongo_conn.orders_collection
     # Convert order_id to ObjectId
     try:
         oid = ObjectId(order_id)
@@ -206,7 +190,7 @@ async def delete_user_order(user_email: str, order_id: str):
 
     # Check if order exists and belongs to the user
     logger.info(f"Checking if order {order_id} exists and belongs to user {user_email}")
-    existing_order = await orders_collection.find_one({"_id": oid, "user_email": user_email})
+    existing_order = await mongo_conn.orders_collection.find_one({"_id": oid, "user_email": user_email})
     if not existing_order:
         logger.warning(f"Order {order_id} not found or does not belong to user {user_email}")
         raise HTTPException(
@@ -216,7 +200,7 @@ async def delete_user_order(user_email: str, order_id: str):
 
     # Delete the order
     logger.info(f"Deleting order {order_id}")
-    result = await orders_collection.delete_one({"_id": oid})
+    result = await mongo_conn.orders_collection.delete_one({"_id": oid})
     if result.deleted_count == 0:
         logger.warning(f"Order {order_id} could not be deleted")
         raise ValueError("Order could not be deleted")
@@ -296,4 +280,67 @@ async def list_user_orders(user_email: str, status: str | None = None, page: int
                 "updated_at": order.get("updated_at")
             } for order in orders
         ]
+    }
+
+async def cancel_user_order(
+    user_email: str,
+    order_id: str,
+    reason: str | None = None
+):
+    orders = mongo_conn.orders_collection
+
+    try:
+        oid = ObjectId(order_id)
+    except Exception:
+        raise ValueError("Invalid order id")
+
+    order = await orders.find_one({
+        "_id": oid,
+        "user_email": user_email
+    })
+
+    if not order:
+        raise ValueError("Order not found or access denied")
+
+    current_status = order["status"]
+
+    if current_status not in USER_CANCELLABLE_STATUSES:
+        raise ValueError(
+            f"Order cannot be cancelled in '{current_status}' state"
+        )
+
+    update_doc = {
+        "status": "cancelled",
+        "updated_at": datetime.utcnow(),
+        "cancelled_by": "user"
+    }
+
+    if reason:
+        update_doc["cancellation_reason"] = reason
+
+    await orders.update_one(
+        {"_id": oid},
+        {"$set": update_doc}
+    )
+
+    # AUDIT LOG
+    await mongo_conn.audit_logs.insert_one({
+        "actor_email": user_email,
+        "action": "cancel_order",
+        "resource_type": "order",
+        "resource_id": order_id,
+        "before": {"status": current_status},
+        "after": {"status": "cancelled"},
+        "reason": reason,
+        "timestamp": datetime.utcnow()
+    })
+
+    logger.info(
+        f"Order {order_id} cancelled by user {user_email}"
+    )
+
+    return {
+        "order_id": order_id,
+        "previous_status": current_status,
+        "new_status": "cancelled"
     }
