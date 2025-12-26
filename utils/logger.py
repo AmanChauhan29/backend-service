@@ -4,7 +4,6 @@ import logging
 def get_logger(name: str) -> logging.Logger:
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
-
     # Avoid duplicate log entries
     if not logger.handlers:
         handler = logging.StreamHandler()
@@ -13,5 +12,4 @@ def get_logger(name: str) -> logging.Logger:
         )
         handler.setFormatter(formatter)
         logger.addHandler(handler)
-
     return logger

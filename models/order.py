@@ -25,6 +25,8 @@ class PaginatedOrderResponse(BaseModel):
     page: int
     page_size: int
     orders: List[OrderOut]
+    has_next: bool
+    has_prev: bool
 
 class RestaurantOrderOut(BaseModel):
     id: str

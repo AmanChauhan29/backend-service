@@ -10,7 +10,7 @@ logger = get_logger("Order_Route")
 router = APIRouter(prefix="/orders", tags=["Orders"])
 
 @router.post("/", response_model=OrderOut)
-async def place_order(order: OrderCreate, current_user: str = Depends(get_current_user)):
+async def place_order(order: OrderCreate, current_user: CurrentUser = Depends(get_current_user)):
     """Create a new order"""
     logger.info(f"Received request to create order by user: {order}")
     try:
@@ -24,7 +24,7 @@ async def place_order(order: OrderCreate, current_user: str = Depends(get_curren
 
 @router.get("/", response_model=PaginatedOrderResponse)
 async def get_orders(
-                    current_user: str = Depends(get_current_user),
+                    current_user: CurrentUser = Depends(get_current_user),
                     status: str | None = Query(None, description="Filter by order status"),
                     page: int = Query(1, ge=1, description="Page number"),
                     limit: int = Query(10, ge=1, le=50, description="Number of results per page")

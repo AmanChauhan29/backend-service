@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "Backend API"
     MONGO_URI: str = os.getenv("MONGO_URI")
     DB_NAME: str = os.getenv("DB_NAME")
+    SECRET_KEY: str = os.getenv("SECRET_KEY")
+    ALGORITHM: str = os.getenv("ALGORITHM") or "HS256"
 
     class Config:
         env_file = ".env"
