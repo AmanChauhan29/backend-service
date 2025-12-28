@@ -15,9 +15,9 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 async def signup(user: UserCreate):
     logger.info(f"Attempting to sign up user with email: {user.email}")
     try:
-        user_created = await create_user(user)
+        await create_user(user)
         logger.info(f"User created with email: {user.email}")
-        return user_created
+        return {f"verification_email_sent_to_{user.email}"}
     except ValueError as e:
         logger.error(f"Error during user signup: {e}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))

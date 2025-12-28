@@ -21,13 +21,12 @@ async def create_user(user: UserCreate):
         "role": "user",                              # default role
         "restaurant_ids": [],                        # default empty
         "token_version": 0,                          # default token version
-        "created_at": datetime.utcnow()
+        "created_at": datetime.utcnow(),
+        "is_verified": False,
+        "verified_at": None,
+        "verification_sent_at": datetime.utcnow(),
+        "status": "pending"
     }
     result =  await users_collection.insert_one(user_dict)
     logger.info(f"User inserted into database with id: {result.inserted_id}")
-    return {
-        "id": str(result.inserted_id),
-        "email": user.email,
-        "full_name": user.full_name,
-        "role": user_dict["role"]
-    }
+    return 
