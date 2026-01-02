@@ -1,4 +1,5 @@
 from passlib.context import CryptContext
+import hashlib
 from utils.logger import get_logger
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -14,3 +15,11 @@ def hash_password(password: str) -> str:
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
+
+def hash_token(token: str) -> str:
+    logger.info(f"Token received for hashing")
+    token_str = str(token)  
+    if len(token_str.encode('utf-8')) > 72:
+        token_str = token_str[:72]
+    logger.info(f"Token length after encoding and truncation (if needed): {len(token_str.encode('utf-8'))}")  
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
