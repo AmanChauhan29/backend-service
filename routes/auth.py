@@ -6,7 +6,7 @@ from pymongo.errors import PyMongoError
 from utils.email import send_verification_email
 from utils.hash import verify_password
 from utils.jwt_handler import create_access_token
-from services.user_service import create_user
+from services.user_service import create_user, verify_user_email, resend_verification_email
 from utils.logger import get_logger
 import os
 from dotenv import load_dotenv
@@ -47,6 +47,31 @@ async def signup(user: UserCreate, background_tasks: BackgroundTasks):
         logger.error(f"Unexpected error during user signup: {e}")   
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User already exists")
     
+@router.get("/verify-email")
+async def verify_email(token: str):
+    logger.info("Email verification request received")
+    return await verify_user_email(token)
+
+@router.post("/resend-verification")
+async def resend_verification(
+    email: str,
+    background_tasks: BackgroundTasks
+):
+    token = await resend_verification_email(email)
+
+    verify_link = f"{FRONTEND_VERIFY_URL}?token={token}"
+
+    background_tasks.add_task(
+        send_verification_email,
+        email,
+        verify_link
+    )
+
+    return {
+        "message": "Verification email resent successfully"
+    }
+
+
 @router.post("/login")
 async def login(user: UserLogin):
     logger.info(f"Login attempt for: {user.email}")
