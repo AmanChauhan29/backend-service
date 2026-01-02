@@ -3,14 +3,13 @@ from typing import List, Optional
 from datetime import datetime
 
 class OrderItem(BaseModel):
-    item_name: str
+    item_id: str
     quantity: int
-    price: float
+
 
 class OrderCreate(BaseModel):
     items: List[OrderItem]
-    total_amount: float
-    status: str = Field(default="pending")
+    restaurant_id: str
 
 class OrderOut(BaseModel):
     id: str
@@ -26,6 +25,8 @@ class PaginatedOrderResponse(BaseModel):
     page: int
     page_size: int
     orders: List[OrderOut]
+    has_next: bool
+    has_prev: bool
 
 class RestaurantOrderOut(BaseModel):
     id: str

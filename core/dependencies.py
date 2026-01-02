@@ -8,6 +8,7 @@ import os
 from typing import List, Optional
 from pydantic import BaseModel, Field
 from utils.logger import get_logger
+from settings.config import settings
 
 logger = get_logger("Dependencies")
 
@@ -17,8 +18,8 @@ logger = get_logger("Dependencies")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 # JWT Secret & Algorithm
-SECRET_KEY = os.getenv("SECRET_KEY", "MySecretKey@123")
-ALGORITHM = "HS256"
+SECRET_KEY = settings.SECRET_KEY  # Production: load from env variables
+ALGORITHM = settings.ALGORITHM  # Production: load from env variables
 
 class CurrentUser(BaseModel):
     id: Optional[str] = None

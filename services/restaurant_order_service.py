@@ -52,5 +52,18 @@ order_id: str,
             }
         }
     )
+    await mongo_conn.audit_logs.insert_one({
+        "actor_email": actor_email,
+        "action": "update_order_status",
+        "resource_type": "order",
+        "resource_id": order_id,
+        "before": {"status": current_status},
+        "after": {"status": new_status},
+        "timestamp": datetime.utcnow()
+    })
+    logger.info(
+        "Order status updated",
+        extra={"order_id": order_id, "from": current_status, "to": new_status, "by": actor_email}
+    )   
 
     return True

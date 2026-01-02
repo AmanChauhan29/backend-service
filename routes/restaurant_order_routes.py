@@ -20,7 +20,19 @@ async def get_my_restaurant_orders(current_user: CurrentUser = Depends(get_curre
             detail="Only restaurant admins can access this"
         )
     orders = await fetch_orders_for_restaurant_admin(restaurant_ids=current_user.restaurant_ids)
-    return orders
+    return [
+        {
+            "id": str(order["_id"]),
+            "user_email": order["user_email"],
+            "restaurant_id": order["restaurant_id"],
+            "items": order["items"],
+            "total_amount": order["total_amount"],
+            "status": order["status"],
+            "created_at": order["created_at"],
+            "updated_at": order.get("updated_at")
+        }
+        for order in orders
+    ]
 
 @router.patch("/orders/{order_id}/status")
 async def update_my_order_status(
@@ -42,5 +54,7 @@ async def update_my_order_status(
             actor_email=current_user.email
         )
         return {"message": "Order status updated successfully"}
+        
+
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

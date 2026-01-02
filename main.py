@@ -4,6 +4,8 @@ from db.db_operation import create_indexes
 from utils.logger import get_logger
 from routes import order_route, user_routes, auth, admin_routes, restaurant_routes, menu_routes, restaurant_order_routes
 # from core.middleware import ExceptionHandlerMiddleware
+from core.rate_limiter import RedisRateLimitMiddleware
+from core.middleware import request_id_middleware
 
 logger = get_logger("main")
 
@@ -19,6 +21,12 @@ async def health_check():
 @app.on_event("startup")
 async def startup_event():
     await create_indexes()
+app.middleware("http")(request_id_middleware)
+app.add_middleware(
+    RedisRateLimitMiddleware,
+    requests=10,        # 60 requests
+    window_seconds=60   # per minute
+)
 # app.add_middleware(ExceptionHandlerMiddleware)
 app.include_router(auth.router)
 app.include_router(user_routes.router)
