@@ -31,7 +31,7 @@ class CurrentUser(BaseModel):
     token_version: int = 0
 
     class Config:
-        orm_mode = True  # helpful if you ever return ORM objects
+        from_attributes = True  # helpful if you ever return ORM objects
 
 async def get_current_user(token: str = Depends(oauth2_scheme)) -> CurrentUser:
     """
