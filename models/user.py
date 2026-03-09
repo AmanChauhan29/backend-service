@@ -16,8 +16,12 @@ class UserInDB(BaseModel):
     token_version: int = 0
 
 class UserOut(BaseModel):
-    message: str
+    id: str
     email: EmailStr
+    full_name: str
+    role: str
+    restaurant_ids: List[str] = []
+    token_version: int = 0
 
 class UserLogin(BaseModel):
     email: EmailStr
