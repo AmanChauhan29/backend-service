@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, status, BackgroundTasks, Request
 from fastapi.responses import JSONResponse
 from models.user import UserCreate, UserOut, UserLogin
+from models.refresh_tokens import RefreshTokenRequest
 from db.db_operation import mongo_conn
 from pymongo.errors import PyMongoError
 from utils.email import send_verification_email
@@ -9,6 +10,7 @@ from utils.jwt_handler import create_access_token, get_refresh_token_expiry
 from services.user_service import create_user, verify_user_email, resend_verification_email
 from utils.logger import get_logger
 import os
+from bson import ObjectId
 from datetime import datetime, timedelta
 import secrets
 from dotenv import load_dotenv
@@ -116,12 +118,12 @@ async def login(user: UserLogin, request: Request):
     }
 
 @router.post("/refresh")
-async def refresh_access_token(refresh_token: str):
+async def refresh_access_token(data: RefreshTokenRequest):
 
     refresh_tokens_collection = mongo_conn.refresh_tokens_collection
     users_collection = mongo_conn.users_collection
 
-    token_hash = hash_token(refresh_token)
+    token_hash = hash_token(data.refresh_token)
 
     token_doc = await refresh_tokens_collection.find_one({
         "token_hash": token_hash
@@ -206,3 +208,56 @@ async def refresh_access_token(refresh_token: str):
         "refresh_token": new_refresh_token,
         "token_type": "bearer"
     }
+
+@router.post("/logout")
+async def logout(data: RefreshTokenRequest):
+    refresh_tokens_collection = mongo_conn.refresh_tokens_collection
+    token_hash = hash_token(data.refresh_token)
+    token_doc = await refresh_tokens_collection.find_one({
+        "token_hash": token_hash
+    })
+    if not token_doc:
+        raise HTTPException(status_code=404, detail="Session not found")
+    await refresh_tokens_collection.update_one(
+        {"_id": token_doc["_id"]},
+        {"$set": {"revoked": True}}
+    )
+    return {"message": "Logged out successfully"}
+
+
+@router.post("/logout-all")
+async def logout_all(user_email: str):
+    refresh_tokens_collection = mongo_conn.refresh_tokens_collection
+    await refresh_tokens_collection.update_many(
+        {"user_email": user_email},
+        {"$set": {"revoked": True}}
+    )
+    return {"message": "All sessions revoked"}
+
+@router.get("/sessions")
+async def get_sessions(user_email: str):
+    refresh_tokens_collection = mongo_conn.refresh_tokens_collection
+    sessions = await refresh_tokens_collection.find(
+        {
+            "user_email": user_email,
+            "revoked": False
+        }
+    ).to_list(length=100)
+    for s in sessions:
+        s["_id"] = str(s["_id"])
+    return sessions
+
+@router.delete("/session/{session_id}")
+async def revoke_session(session_id: str, user_email: str):
+    refresh_tokens_collection = mongo_conn.refresh_tokens_collection
+    session = await refresh_tokens_collection.find_one({
+        "_id": ObjectId(session_id),
+        "user_email": user_email
+    })
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    await refresh_tokens_collection.update_one(
+        {"_id": ObjectId(session_id)},
+        {"$set": {"revoked": True}}
+    )
+    return {"message": "Session revoked"}

@@ -12,3 +12,6 @@ class RefreshToken(BaseModel):
     replaced_by_token: Optional[str] = None
     user_agent: Optional[str] = None
     ip_address: Optional[str] = None
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
