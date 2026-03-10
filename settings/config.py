@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD")
     FROM_EMAIL: str = os.getenv("FROM_EMAIL")
     FRONTEND_VERIFY_URL: str = os.getenv("FRONTEND_VERIFY_URL")
+    REDIS_URL: str = os.getenv("REDIS_URL")
 
 
     class Config:

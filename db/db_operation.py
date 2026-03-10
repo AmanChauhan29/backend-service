@@ -29,6 +29,7 @@ class MongoConnection:
         self.menu_items = self.db["menu_items"]
         self.audit_logs = self.db["audit_logs"]
         self.orders_collection = self.db["orders"]
+        self.refresh_tokens_collection = self.db["refresh_tokens"]
    
     async def connect(self):
         try:

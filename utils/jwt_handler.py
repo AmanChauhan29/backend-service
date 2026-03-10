@@ -7,7 +7,7 @@ logger = get_logger("JWT_HANDLER")
 
 SECRET_KEY = settings.SECRET_KEY  # Production: load from env variables
 ALGORITHM = settings.ALGORITHM  # Production: load from env variables
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
+ACCESS_TOKEN_EXPIRE_MINUTES = 2 
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 
 def create_access_token(data: dict):
@@ -36,14 +36,8 @@ def decode_access_token(token: str):
     except Exception as e:
         raise ValueError("Invalid token")
 
-def create_refresh_token(data: dict):
+def get_refresh_token_expiry():
     """
-    Creates JWT token with expiry.
+    Returns the expiry datetime for refresh tokens.
     """
-    logger.info("Refresh token creation requested")
-    to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
-    logger.info(f"Token will expire at {expire}")
-    to_encode.update({"exp": expire, "iat": datetime.utcnow()}) 
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+    return datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
