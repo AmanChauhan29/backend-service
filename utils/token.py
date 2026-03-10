@@ -1,3 +1,4 @@
+import secrets
 from jose import jwt
 from datetime import datetime, timedelta
 import os
@@ -20,3 +21,5 @@ def create_email_verification_token(email: str) -> str:
     token = jwt.encode(payload, VERIFY_SECRET_KEY, algorithm=VERIFY_ALGORITHM)
     return token
 
+def generate_password_reset_token():
+    return secrets.token_urlsafe(48)

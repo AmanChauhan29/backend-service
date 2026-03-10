@@ -1,3 +1,4 @@
+import email
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -13,7 +14,7 @@ SMTP_USER = settings.SMTP_USER
 SMTP_PASSWORD = settings.SMTP_PASSWORD
 FROM_EMAIL = settings.FROM_EMAIL
 
-def send_verification_email(to_email: str, verify_link: str):
+async def send_verification_email(to_email: str, verify_link: str):
     """
     Sends verification email
     """
@@ -47,3 +48,37 @@ def send_verification_email(to_email: str, verify_link: str):
 
     except Exception as e:
         logger.error("Failed to send verification email", exc_info=e)
+
+
+async def send_reset_password_email(to_email: str, reset_link: str):
+    try:
+        msg = MIMEMultipart()
+        msg["From"] = FROM_EMAIL
+        msg["To"] = to_email
+        msg["Subject"] = "Reset Your Password"
+
+        body = f"""
+        Hello,
+
+        You requested to reset your password.
+
+        Click the link below to reset your password:
+
+        {reset_link}
+
+        This link expires in 30 minutes.
+
+        If you did not request this, ignore this email.
+        """
+
+        msg.attach(MIMEText(body, "plain"))
+        server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
+        server.starttls()
+        server.login(SMTP_USER, SMTP_PASSWORD)
+        server.sendmail(FROM_EMAIL, to_email, msg.as_string())
+        server.quit()
+        logger.info(f"Password reset email sent to {to_email}")
+
+    except Exception as e:
+        logger.error("Failed to send verification email", exc_info=e)
+
