@@ -4,12 +4,14 @@ from models.user import UserCreate, UserOut, UserLogin
 from models.refresh_tokens import RefreshTokenRequest
 from db.db_operation import mongo_conn
 from pymongo.errors import PyMongoError
+from services.auth_service import forgot_password, reset_password
 from utils.email import send_verification_email
 from utils.hash import verify_password, hash_token
 from utils.jwt_handler import create_access_token, get_refresh_token_expiry
 from services.user_service import create_user, verify_user_email, resend_verification_email
 from utils.logger import get_logger
 import os
+from models.auth_models import ForgotPasswordRequest, ResetPasswordRequest
 from bson import ObjectId
 from datetime import datetime, timedelta
 import secrets
@@ -261,3 +263,14 @@ async def revoke_session(session_id: str, user_email: str):
         {"$set": {"revoked": True}}
     )
     return {"message": "Session revoked"}
+
+@router.post("/forgot-password")
+async def forgot_password_handler(data: ForgotPasswordRequest, background_tasks: BackgroundTasks):
+    return await forgot_password(data.email, background_tasks)
+
+@router.post("/reset-password")
+async def reset_password_handler(data: ResetPasswordRequest):
+    return await reset_password(
+        data.token,
+        data.new_password
+    )
