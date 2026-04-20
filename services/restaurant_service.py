@@ -139,3 +139,18 @@ async def soft_delete_restaurant(restaurant_id: str, actor_email: str = None):
         "timestamp": datetime.utcnow()
     })
     return {"message": "restaurant_disabled", "restaurant_id": restaurant_id}
+
+async def search_restaurants(search_query: str):
+    logger.info(f"Restaurant search requested query={search_query}")
+    restaurants_collection = mongo_conn.restaurants_collection
+    query = {
+        "name": {
+            "$regex": search_query,
+            "$options": "i"
+        }
+    }
+    restaurants = await restaurants_collection.find(query).to_list(length=20)
+    for restaurant in restaurants:
+        restaurant["id"] = str(restaurant["_id"])
+    logger.info(f"Found {len(restaurants)} restaurants")
+    return restaurants

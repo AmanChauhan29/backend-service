@@ -29,5 +29,10 @@ class RestaurantOut(BaseModel):
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
-class RestaurantListItem(RestaurantOut):
-    pass
+class RestaurantListItem(BaseModel  ):
+    id: str
+    name: str
+class RestaurantListMenuItem(BaseModel):
+    id: str
+    name: str
+    description: Optional[str] = None
