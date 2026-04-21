@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Body, Path, Query
 from models.menu import MenuItemCreate, MenuItemOut, MenuItemUpdate
-from services.menu_service import create_menu_item, list_menu_items, get_menu_item, update_menu_item, delete_menu_item
+from services.menu_service import create_menu_item, list_menu_items, get_menu_item, update_menu_item, delete_menu_item, search_menu_items
 from core.dependencies import get_current_user
 from utils.logger import get_logger
 from typing import List
@@ -8,6 +8,17 @@ from typing import List
 logger = get_logger("Menu_Route")
 router = APIRouter(prefix="/menu", tags=["Menu"])
 
+@router.get("/search", response_model=List[MenuItemOut])
+async def search_menu_item(
+    q: str,
+    current_user=Depends(get_current_user)
+):
+    try:
+        items = await search_menu_items(q)
+        return items
+    except Exception:
+        logger.exception("Error searching menu items")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal Server Error")
 # Public: list visible menu items for a restaurant
 @router.get("/{restaurant_id}", response_model=List[MenuItemOut])
 async def api_list_menu(restaurant_id: str = Path(...), available: bool = Query(True)):
@@ -60,3 +71,4 @@ async def api_delete_menu_item(restaurant_id: str, item_id: str, current_user = 
     except Exception:
         logger.exception("Error deleting menu item")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal Server Error")
+

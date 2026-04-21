@@ -21,8 +21,8 @@ class MenuItemOut(BaseModel):
     description: Optional[str] = None
     price: float
     is_available: bool
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
 class OrderItemIn(BaseModel):
     item_id: str

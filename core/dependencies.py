@@ -29,7 +29,6 @@ class CurrentUser(BaseModel):
     # use Field(default_factory=list) to avoid mutable default list pitfall
     restaurant_ids: List[str] = Field(default_factory=list)
     token_version: int = 0
-
     class Config:
         from_attributes = True  # helpful if you ever return ORM objects
 

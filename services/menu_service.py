@@ -130,3 +130,18 @@ async def delete_menu_item(restaurant_id: str, item_id: str, actor_email: str = 
     })
     logger.info("Menu item deleted", extra={"actor": actor_email, "item_id": item_id})
     return {"message": "deleted", "item_id": item_id}
+
+async def search_menu_items(search_query: str):
+    logger.info(f"Menu search query={search_query}")
+    menu_collection = mongo_conn.menu_items
+    query = {
+        "name": {
+            "$regex": search_query,
+            "$options": "i"
+        },
+        "is_available": True
+    }
+    items = await menu_collection.find(query).to_list(length=20)
+    for item in items:
+        item["id"] = str(item["_id"])
+    return items

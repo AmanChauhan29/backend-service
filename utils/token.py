@@ -17,7 +17,6 @@ def create_email_verification_token(email: str) -> str:
         "exp": datetime.utcnow() + timedelta(minutes=VERIFY_TOKEN_EXPIRE_MINUTES),
         "iat": datetime.utcnow()
     }
-
     token = jwt.encode(payload, VERIFY_SECRET_KEY, algorithm=VERIFY_ALGORITHM)
     return token
 

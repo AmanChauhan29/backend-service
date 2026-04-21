@@ -7,7 +7,7 @@ logger = get_logger("JWT_HANDLER")
 
 SECRET_KEY = settings.SECRET_KEY  # Production: load from env variables
 ALGORITHM = settings.ALGORITHM  # Production: load from env variables
-ACCESS_TOKEN_EXPIRE_MINUTES = 2 
+ACCESS_TOKEN_EXPIRE_MINUTES = 59 
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 
 def create_access_token(data: dict):
