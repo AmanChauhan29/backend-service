@@ -22,7 +22,7 @@ class MongoConnection:
     def __init__(self):
         logger.info("Initializing MongoDB Connection")
         mongo_uri = settings.MONGO_URI
-        self.client = AsyncIOMotorClient(mongo_uri)
+        self.client = AsyncIOMotorClient(mongo_uri, maxPoolSize=20, minPoolSize=10)
         self.db = self.client[settings.DB_NAME]
         self.users_collection = self.db["users"]
         self.restaurants_collection = self.db["restaurants"]

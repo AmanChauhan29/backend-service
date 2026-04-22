@@ -10,7 +10,17 @@ from core.middleware import request_id_middleware
 logger = get_logger("main")
 
 app = FastAPI(title="Food Ordering System API", version="1.0.0")
+API_V1 = "/api/v1"
+
 @app.get("/")
+async def health_check():
+    logger.info("root endpoint hit")
+    return {
+        "status": "ok",
+        "app": settings.PROJECT_NAME,
+        "message": "Root Endpoint - FastAPI is running"
+    }
+@app.get(f"{API_V1}/health-check")
 async def health_check():
     logger.info("Health check is successful")
     return {
@@ -28,10 +38,10 @@ app.add_middleware(
     window_seconds=60   # per minute
 )
 # app.add_middleware(ExceptionHandlerMiddleware)
-app.include_router(auth.router)
-app.include_router(user_routes.router)
-app.include_router(order_route.router)
-app.include_router(admin_routes.router)
-app.include_router(restaurant_routes.router)
-app.include_router(menu_routes.router)
-app.include_router(restaurant_order_routes.router)
+app.include_router(auth.router, prefix=API_V1)
+app.include_router(user_routes.router, prefix=API_V1)
+app.include_router(order_route.router, prefix=API_V1)
+app.include_router(admin_routes.router, prefix=API_V1)
+app.include_router(restaurant_routes.router, prefix=API_V1)
+app.include_router(menu_routes.router, prefix=API_V1)
+app.include_router(restaurant_order_routes.router, prefix=API_V1)

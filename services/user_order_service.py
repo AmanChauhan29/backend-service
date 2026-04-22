@@ -344,3 +344,15 @@ async def cancel_user_order(
         "previous_status": current_status,
         "new_status": "cancelled"
     }
+
+async def search_orders(status: str, user_email: str):
+    logger.info(f"Order search status={status} user={user_email}")
+    orders_collection = mongo_conn.orders_collection
+    query = {
+        "user_email": user_email,
+        "status": status
+    }
+    orders = await orders_collection.find(query).to_list(length=20)
+    for order in orders:
+        order["id"] = str(order["_id"])
+    return orders

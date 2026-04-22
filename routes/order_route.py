@@ -3,12 +3,22 @@ from models.order import OrderCreate, OrderOut, PaginatedOrderResponse
 from services.user_order_service import get_user_orders, update_user_order, delete_user_order, list_user_orders, update_order_status_by_restaurant, create_order, cancel_user_order
 from core.dependencies import get_current_user, CurrentUser
 from typing import List, Optional
+from services import user_order_service
 from utils.logger import get_logger
 
 logger = get_logger("Order_Route")
 
 router = APIRouter(prefix="/orders", tags=["Orders"])
 
+@router.get("/search", response_model=List[OrderOut])
+async def search_orders(
+    status: str,
+    current_user: CurrentUser = Depends(get_current_user)
+):
+    return await user_order_service.search_orders(
+        status,
+        current_user.email
+    )
 @router.post("/", response_model=OrderOut)
 async def place_order(order: OrderCreate, current_user: CurrentUser = Depends(get_current_user)):
     """Create a new order"""
