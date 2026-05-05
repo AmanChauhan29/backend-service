@@ -20,8 +20,8 @@ class ExceptionHandlerMiddleware(BaseHTTPMiddleware):
             return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
 
 async def request_id_middleware(request: Request, call_next):
-    logger.info(f"[{request_id}] Request: {request.method} {request.url}")
     request_id = str(uuid.uuid4())
+    logger.info(f"[{request_id}] Request: {request.method} {request.url}")
     request.state.request_id = request_id
     response = await call_next(request)
     response.headers["X-Request-ID"] = request_id
