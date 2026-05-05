@@ -106,8 +106,6 @@ async def create_order(user_email: str, restaurant_id: str, items: List[OrderIte
         "created_at": order_doc["created_at"].isoformat()
     }
 
-
-
 async def get_user_orders(user_email: str):
     """Get all orders of the logged-in user"""
     orders_collection = mongo_conn.orders_collection
@@ -125,6 +123,22 @@ async def get_user_orders(user_email: str):
         }
         for order in orders
     ]
+
+async def get_orderById(user_email: str, order_id: str):
+    """Get a specific order by ID for the logged-in user"""
+    orders_collection = mongo_conn.orders_collection
+    order = await orders_collection.find_one({"_id": ObjectId(order_id), "user_email": user_email})
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    logger.info(f"Fetched order {order_id} for user {user_email}")
+    return {
+        "id": str(order["_id"]),
+        "user_email": order["user_email"],
+        "items": order["items"],
+        "total_amount": order["total_amount"],
+        "status": order["status"],
+        "created_at": order["created_at"]
+    }
 
 async def update_user_order(user_email: str, order_id: str, order_data):
     """Update an order only if it belongs to the current user"""    

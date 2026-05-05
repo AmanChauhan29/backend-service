@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from models.order import OrderCreate, OrderOut, PaginatedOrderResponse
-from services.user_order_service import get_user_orders, update_user_order, delete_user_order, list_user_orders, update_order_status_by_restaurant, create_order, cancel_user_order
+from services.user_order_service import get_orderById, get_user_orders, update_user_order, delete_user_order, list_user_orders, update_order_status_by_restaurant, create_order, cancel_user_order
 from core.dependencies import get_current_user, CurrentUser
 from typing import List, Optional
 from services import user_order_service
@@ -10,6 +10,7 @@ logger = get_logger("Order_Route")
 
 router = APIRouter(prefix="/orders", tags=["Orders"])
 
+#Search orders by status for current user
 @router.get("/search", response_model=List[OrderOut])
 async def search_orders(
     status: str,
@@ -19,6 +20,7 @@ async def search_orders(
         status,
         current_user.email
     )
+#Create new order for current user
 @router.post("/", response_model=OrderOut)
 async def place_order(order: OrderCreate, current_user: CurrentUser = Depends(get_current_user)):
     """Create a new order"""
@@ -31,7 +33,8 @@ async def place_order(order: OrderCreate, current_user: CurrentUser = Depends(ge
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error creating order")
-
+    
+# Get all orders for current user with pagination and optional status filter
 @router.get("/", response_model=PaginatedOrderResponse)
 async def get_orders(
                     current_user: CurrentUser = Depends(get_current_user),
@@ -45,7 +48,7 @@ async def get_orders(
         return orders
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error fetching orders")
-    
+# Get specific order by ID for current user
 @router.post("/{order_id}/cancel")
 async def cancel_my_order(
     order_id: str,
@@ -57,9 +60,7 @@ async def cancel_my_order(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only customers can cancel orders"
         )
-
     reason = payload.get("reason")
-
     try:
         result = await cancel_user_order(
             user_email=current_user.email,
@@ -140,3 +141,17 @@ async def api_update_order_status(restaurant_id: str, order_id: str, payload: di
 #         raise HTTPException(...403...)
 #     orders = await get_orders_by_restaurant(restaurant_id, skip, limit)
 #     return orders
+
+@router.get("/{order_id}", response_model=OrderOut)
+async def get_order(order_id: str, current_user: CurrentUser = Depends(get_current_user)):
+    """Fetch specific order by ID for current user"""
+    try:
+        order = await get_orderById(current_user.email, order_id)
+        if not order:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+        return order
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Error fetching order {order_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error fetching order")

@@ -24,5 +24,6 @@ class UserOut(BaseModel):
     token_version: int = 0
 
 class UserLogin(BaseModel):
+    username: Optional[str] = Field(None, description="Email of the user")
     email: EmailStr
     password: str
