@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status, BackgroundTasks, Request
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request
 from fastapi.responses import JSONResponse
 from models.user import UserCreate, UserOut, UserLogin
 from models.refresh_tokens import RefreshTokenRequest
