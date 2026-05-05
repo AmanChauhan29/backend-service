@@ -15,7 +15,7 @@ logger = get_logger("Dependencies")
 
 
 # tells fastapi to expect a token in the request header after login
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 # JWT Secret & Algorithm
 SECRET_KEY = settings.SECRET_KEY  # Production: load from env variables
