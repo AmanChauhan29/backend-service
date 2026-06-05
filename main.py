@@ -12,7 +12,7 @@ logger = get_logger("main")
 app = FastAPI(title="Food Ordering System API", version="1.0.0")
 API_V1 = "/api/v1"
 
-@app.get("/")
+@app.get("/health")
 async def health_check():
     logger.info("root endpoint hit")
     return {
@@ -20,7 +20,7 @@ async def health_check():
         "app": settings.PROJECT_NAME,
         "message": "Root Endpoint - FastAPI is running"
     }
-@app.get(f"{API_V1}/health-check")
+@app.get(f"{API_V1}/health")
 async def health_check():
     logger.info("Health check is successful")
     return {
