@@ -15,7 +15,7 @@ echo "====================================="
 
 APP_NAME="backend-service"
 APP_DIR="/opt/backend-service"
-SECRET_NAME="prod/fastapi-app"
+SECRET_NAME="application/prod"
 REPO_URL="https://github.com/AmanChauhan29/backend-service.git"
 
 echo "Updating system..."
@@ -27,10 +27,18 @@ echo "Installing packages..."
 yum install -y \
 python3.11 \
 python3.11-pip \
-python3.11-venv \
+python3.11-devel \
 git \
 nginx \
+ruby \
+wget \
 jq
+# Install CodeDeploy agent
+cd /tmp
+wget https://aws-codedeploy-ap-south-1.s3.ap-south-1.amazonaws.com/latest/install
+chmod +x install
+sudo ./install auto
+echo "codedeploy-agent installation completed"
 
 echo "Creating application directory..."
 
