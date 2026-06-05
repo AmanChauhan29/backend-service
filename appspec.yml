@@ -5,7 +5,21 @@ os: linux
 files:
   - source: /
     destination: /opt/backend-service
-
+    overwrite: yes
+    
+permissions:
+  - object: /opt/backend-service
+    owner: ec2-user
+    group: ec2-user
+    mode: "755"
+    type:
+      - directory
+  - object: /opt/backend-service/scripts
+    owner: ec2-user
+    group: ec2-user
+    mode: "755"        # scripts must be executable
+    type:
+      - file
 hooks:
   BeforeInstall:
     - location: scripts/deploy.sh

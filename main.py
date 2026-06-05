@@ -20,7 +20,7 @@ async def health_check():
         "app": settings.PROJECT_NAME,
         "message": "Root Endpoint - FastAPI is running"
     }
-@app.get(f"{API_V1}/health")
+@app.get(f"{API_V1}/")
 async def health_check():
     logger.info("Health check is successful")
     return {
