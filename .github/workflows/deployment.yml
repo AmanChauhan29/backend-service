@@ -13,3 +13,10 @@ jobs:
 
       - name: pytest RUN TESTS
         run: pytest
+
+      - name: Build Docker image
+        run: docker build -t backend-service
+
+      
+
+      
