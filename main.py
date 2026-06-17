@@ -13,8 +13,8 @@ app = FastAPI(title="Food Ordering System API", version="1.0.0")
 API_V1 = "/api/v1"
 
 @app.get("/health")
-async def health_check():
-    logger.info("root endpoint hit")
+async def health():
+    logger.info("root healthendpoint hit")
     return {
         "status": "ok",
         "app": settings.PROJECT_NAME,
