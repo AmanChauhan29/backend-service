@@ -1,27 +1,56 @@
-name: Test CI
-on:
-  push:
-    branches: 
-      - develop
-  pull_request:
-    branches:
-      - develop
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
+name: Test CI
+
+on:
+
+  push:
+
+    branches: 
+
+      - develop
+
+  pull_request:
+
+    branches:
+
+      - develop
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+
+
+    steps:
+
+      - uses: actions/checkout@v4
+
+
+
+      - name: Install dependencies
+
+        run: pip install -r requirements.txt
+
+
+      - name: Install pytest specifically
+
+        run: pip install pytest
+
+
+
       - name: pytest RUN TESTS
         run: pytest tests/
-
-      - name: Build Docker image
-        run: docker build -t backend-service
-
-      
-
+
+
+      - name: Build Docker image
+
+        run: docker build -t backend-service
+
+
+
+      
+
+
+
       
