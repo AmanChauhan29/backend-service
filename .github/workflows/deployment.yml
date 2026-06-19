@@ -24,7 +24,7 @@ jobs:
         run: pytest tests/
 
       - name: Build Docker image
-        run: docker build -t backend-service
+        run: docker build -t backend-service .
 
 
 
